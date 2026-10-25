@@ -1,0 +1,12 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {loadSpec} from '../src/core.js';
+import {diffContracts} from '../src/diff.js';
+import {generateSdk} from '../src/generate.js';
+import {planIntegration} from '../src/plan.js';
+test('plans sync and action candidates without pretending heuristics are certain',async()=>{const plan=planIntegration(await loadSpec('examples/contacts.yaml'));assert.equal(plan.syncs[0].operationId,'listContacts');assert.equal(plan.actions[0].operationId,'createContact');assert.match(plan.syncs[0].rationale,/candidate/);});
+test('detects breaking and additive contract changes',async()=>{const report=diffContracts(await loadSpec('examples/contacts.yaml'),await loadSpec('examples/contacts-v2-breaking.yaml'));assert.ok(report.changes.some(c=>c.code==='REQUIRED_PARAMETER_ADDED'));assert.ok(report.changes.some(c=>c.code==='OPERATION_ADDED'&&!c.breaking));assert.ok(report.breaking>=2);});
+test('generates a typed executable SDK without overwriting output',async()=>{const root=await mkdtemp(join(tmpdir(),'integration-doctor-'));const output=join(root,'sdk');try{const files=await generateSdk(await loadSpec('examples/contacts.yaml'),output);assert.equal(files.length,3);await assert.rejects(generateSdk(await loadSpec('examples/contacts.yaml'),output),/exist|EEXIST/);}finally{await rm(root,{recursive:true,force:true});}});

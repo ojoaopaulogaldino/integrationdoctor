@@ -1,0 +1,22 @@
+openapi: 3.1.0
+info: {title: Example Contacts API, version: 2.0.0}
+servers: [{url: https://api.example.com}]
+security: [{bearerAuth: []}]
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+paths:
+  /contacts:
+    get:
+      operationId: listContacts
+      parameters:
+        - {name: cursor, in: query, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Contacts}
+        '429': {description: Rate limit reached}
+  /contacts/search:
+    get:
+      operationId: searchContacts
+      responses:
+        '200': {description: Search results}
+        '429': {description: Rate limit reached}

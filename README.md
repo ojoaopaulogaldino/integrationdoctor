@@ -1,0 +1,103 @@
+# Integration Doctor
+
+**From an OpenAPI file to an integration plan, compatibility gate, typed SDK, and agent tools.**
+
+Integration Doctor is a local-first TypeScript workbench for the engineering work around third-party APIs. It treats an integration as a product surface—not just an HTTP request—and makes reliability decisions visible before production.
+
+Built by João Paulo Galdino as a new personal developer-tool project. It does not claim prior company adoption.
+
+## The five-minute demo
+
+Requires Node.js 22+.
+
+```sh
+npm install
+npm run check
+node dist/cli.js inspect examples/contacts.yaml
+node dist/cli.js diff examples/contacts.yaml examples/contacts-v2-breaking.yaml --strict
+node dist/cli.js generate examples/contacts.yaml generated/contacts-sdk
+```
+
+The demo never contacts the example API. Existing output directories are protected from overwrite.
+
+## What it proves
+
+- **Contract intelligence:** deterministic checks for authentication, operation identity, errors, rate limits, pagination, path parameters, idempotency, and unsafe external references.
+- **Integration topology:** explicit *candidate* syncs, actions, auth schemes, and webhook surfaces, with rationales so a developer can reject a bad heuristic.
+- **Compatibility engineering:** old/new contract diff with breaking-change classification and CI-friendly exit codes.
+- **Executable SDK generation:** OpenAPI types plus an `openapi-fetch` client—not types alone.
+- **Production runtime primitives:** pluggable auth, timeouts, cancellation, structured errors, secret redaction, telemetry events, bounded exponential retries, `Retry-After`, safe-write idempotency, and loop-safe cursor pagination.
+- **Webhook security:** timestamped HMAC-SHA256 signing, constant-time verification, and replay windows.
+- **Agent-native DX:** three read-only MCP tools and a reusable agent skill backed by the same core as the CLI.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Spec[OpenAPI 3.0 / 3.1] --> Load[Bounded local loader]
+  Load --> Analyze[Risk analyzer]
+  Load --> Plan[Integration planner]
+  Load --> Diff[Contract diff]
+  Load --> SDK[Typed SDK generator]
+  Analyze & Plan & Diff --> CLI[CLI / CI]
+  Analyze & Plan & Diff --> MCP[Read-only MCP server]
+  SDK --> Runtime[Auth + retry + pagination + telemetry]
+  Runtime --> API[Third-party API]
+  Webhook[Signed webhooks] --> Runtime
+```
+
+The analysis path is offline and deterministic. Network access only exists in the exported `IntegrationClient`, where the application explicitly supplies a base URL and invokes a request.
+
+## Runtime example
+
+```ts
+import { IntegrationClient, paginate } from 'integration-doctor/runtime';
+
+const api = new IntegrationClient({
+  baseUrl: 'https://api.example.com',
+  auth: () => ({ authorization: `Bearer ${process.env.API_TOKEN}` }),
+  onEvent: event => telemetry.emit(event),
+});
+
+for await (const contact of paginate(async cursor =>
+  api.request({ path: '/contacts', query: { cursor } })
+)) {
+  await saveContact(contact);
+}
+
+// POST is never retried unless the caller supplies an idempotency key.
+await api.request({
+  method: 'POST', path: '/contacts', body: { name: 'Ada' },
+  idempotencyKey: crypto.randomUUID(),
+});
+```
+
+## MCP server
+
+```json
+{"mcpServers":{"integration-doctor":{"command":"node","args":["/absolute/path/IntegrationDoctor/dist/cli.js","mcp","/absolute/path/workspace"]}}}
+```
+
+- `analyze_openapi({ file })` — deterministic risks and review points.
+- `plan_integration({ file })` — auth, sync, action, and webhook candidates.
+- `diff_openapi({ before, after })` — likely breaking API changes.
+
+All MCP paths are realpath-checked against the configured workspace, input is capped at 5 MB, external references are never fetched, and every tool is declared read-only.
+
+## Engineering boundaries
+
+This is not a complete OpenAPI validator, OAuth broker, durable job runner, or vulnerability scanner. Planning is heuristic and labeled as such. The diff currently analyzes operation/parameter/body/response surface changes; deep JSON Schema variance is a deliberate next milestone. Runtime validation, refresh-token concurrency, distributed rate limiting, durable retries, and tenant isolation belong in the hosting application or integration platform.
+
+That boundary is intentional: good infrastructure says what it guarantees and where ownership changes.
+
+## Development
+
+```sh
+npm run build
+npm test
+npm run check
+```
+
+Tests exercise the CLI core, actual MCP stdio transport, workspace traversal denial, generated SDK output, breaking diffs, retry safety, `Retry-After`, pagination loops, signature tampering, and replay attacks.
+
+See [SECURITY.md](SECURITY.md) for the threat model and [docs/architecture.md](docs/architecture.md) for design decisions and the roadmap.

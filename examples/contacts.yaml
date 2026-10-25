@@ -1,0 +1,42 @@
+openapi: 3.1.0
+info:
+  title: Example Contacts API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Contact:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: string}
+        name: {type: string}
+paths:
+  /contacts:
+    get:
+      operationId: listContacts
+      parameters:
+        - name: cursor
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: Contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Contact'}
+        '401': {description: Unauthorized}
+        '429': {description: Rate limit reached}
+    post:
+      operationId: createContact
+      responses:
+        '201': {description: Created}
