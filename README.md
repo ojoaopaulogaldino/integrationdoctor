@@ -1,10 +1,8 @@
 # Integration Doctor
 
-**From an OpenAPI file to an integration plan, compatibility gate, typed SDK, and agent tools.**
+I built Integration Doctor to make the boring and failure-prone parts of third-party API work easier to review. Give it an OpenAPI contract and it points out integration risks, suggests a practical implementation shape, compares contract versions, and can generate a typed client.
 
-Integration Doctor is a local-first TypeScript workbench for the engineering work around third-party APIs. It treats an integration as a product surface—not just an HTTP request—and makes reliability decisions visible before production.
-
-Built by João Paulo Galdino as a new personal developer-tool project. It does not claim prior company adoption.
+The CLI, library, and MCP server all use the same analysis code. That was important to me: an agent should not give different advice from the checks running in CI.
 
 ## The five-minute demo
 
@@ -101,3 +99,7 @@ npm run check
 Tests exercise the CLI core, actual MCP stdio transport, workspace traversal denial, generated SDK output, breaking diffs, retry safety, `Retry-After`, pagination loops, signature tampering, and replay attacks.
 
 See [SECURITY.md](SECURITY.md) for the threat model and [docs/architecture.md](docs/architecture.md) for design decisions and the roadmap.
+
+---
+
+**Note for the Nango team:** this project previously only ran on my machine as part of my own development workflow. I pushed it to GitHub because the application form asks for a public example of developer tooling. The repository has no prior company adoption or production usage behind it; it is here so you can inspect the code and the engineering decisions directly.
